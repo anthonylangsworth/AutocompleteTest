@@ -8,11 +8,11 @@ Minimal code to demonstrate a potential issue regarding autocomplete in Discord.
 3. Download the source code, compile it and run it.
 4. Join the bot to a Discord guild using `https://discordapp.com/oauth2/authorize?client_id=CLIENT_ID&scope=bot&permissions=0`, replacing `CLIENT_ID` with your Discord bot's client ID.
 5. Wait a moment for the commands to be registered.
-6. Use the `/hello name` command to get an emphemeral message "Hello name".
+6. Use the `/hello name` command to get an ephemeral message "Hello name".
 
 **Expected behaviour:** The `EchoAutocompleteHandler` autocomplete command fires, suggesting the names of Donald Duck's nephews (https://en.wikipedia.org/wiki/Duck_family_(Disney)#Huey,_Dewey_and_Louie_Duck).
 
-**Actual behavour:** No autocomplete command is found in `DiscordClient_AutocompleteExecuted`. A sample console output:
+**Actual behaviour:** No autocomplete command is found in `DiscordClient_AutocompleteExecuted`. The autocompletion is registered but the Interaction framework cannot find the command. A sample console output:
 
 ```
 22:51:36 Discord     Discord.Net v3.8.1 (API v10)
