@@ -10,8 +10,7 @@ using DiscordSocketClient discordClient = new(new DiscordSocketConfig()
 using InteractionService interactionService = new(discordClient);
 discordClient.Log += DiscordClient_Log;
 interactionService.Log += DiscordClient_Log;
-discordClient.SlashCommandExecuted += DiscordClient_SlashCommandExecutedAsync;
-discordClient.AutocompleteExecuted += DiscordClient_AutocompleteExecuted;
+discordClient.InteractionCreated += DiscordClient_InteractionCreated;
 discordClient.GuildAvailable += DiscordClient_GuildAvailable;
 await interactionService.AddModulesAsync(Assembly.GetExecutingAssembly(), null);
 await discordClient.LoginAsync(TokenType.Bot, Environment.GetEnvironmentVariable("AUTOCOMPLETETEST_DISCORD_APIKEY"));
@@ -22,23 +21,33 @@ async Task DiscordClient_Log(LogMessage arg) => await Console.Out.WriteLineAsync
 
 async Task DiscordClient_GuildAvailable(SocketGuild guild) => await interactionService.RegisterCommandsToGuildAsync(guild.Id);
 
-async Task DiscordClient_SlashCommandExecutedAsync(SocketSlashCommand socketSlashCommand)
+async Task DiscordClient_InteractionCreated(SocketInteraction interaction)
 {
-    IResult result = await interactionService.ExecuteCommandAsync(
-        new SocketInteractionContext(discordClient, socketSlashCommand), null);
-    Console.WriteLine($"Command result: {result}");
-}
-
-async Task DiscordClient_AutocompleteExecuted(SocketAutocompleteInteraction arg)
-{
-    IResult result = interactionService.SearchAutocompleteCommand(arg);
-    if (result.IsSuccess
-        && result is SearchResult<AutocompleteCommandInfo> autocompleteResult
-        && autocompleteResult.Command != null)
+    try
     {
-        result = await autocompleteResult.Command.ExecuteAsync(new SocketInteractionContext(discordClient, arg), null);
+        // Create an execution context that matches the generic type parameter of your InteractionModuleBase<T> modules.
+        var context = new SocketInteractionContext(discordClient, interaction);
+
+        // Execute the incoming command.
+        var result = await interactionService.ExecuteCommandAsync(context, null);
+
+        if (!result.IsSuccess)
+            switch (result.Error)
+            {
+                case InteractionCommandError.UnmetPrecondition:
+                    // implement
+                    break;
+                default:
+                    break;
+            }
     }
-    Console.WriteLine($"Autocomplete result: {result}");
+    catch
+    {
+        // If Slash Command execution fails it is most likely that the original interaction acknowledgement will persist. It is a good idea to delete the original
+        // response, or at least let the user know that something went wrong during the command execution.
+        if (interaction.Type is InteractionType.ApplicationCommand)
+            await interaction.GetOriginalResponseAsync().ContinueWith(async (msg) => await msg.Result.DeleteAsync());
+    }
 }
 
 namespace ModulesAndHandlers
@@ -61,20 +70,3 @@ namespace ModulesAndHandlers
             => Task.FromResult(AutocompletionResult.FromSuccess(new[] { "Huey", "Dewey", "Louie" }.Select(s => new AutocompleteResult(s, s))));
     }
 }
-
-/*
- * Sample result:
- * 
-22:51:36 Discord     Discord.Net v3.8.1 (API v10)
-22:51:37 Gateway     Connecting
-22:51:38 Gateway     Connected
-Autocomplete result: UnknownCommand: No Discord.Interactions.AutocompleteCommandInfo found for hello name
-Autocomplete result: UnknownCommand: No Discord.Interactions.AutocompleteCommandInfo found for hello name
-Command result: Success
-22:51:49 Gateway     Ready
-Autocomplete result: UnknownCommand: No Discord.Interactions.AutocompleteCommandInfo found for hello name
-Autocomplete result: UnknownCommand: No Discord.Interactions.AutocompleteCommandInfo found for hello name
-Autocomplete result: UnknownCommand: No Discord.Interactions.AutocompleteCommandInfo found for hello name
-Autocomplete result: UnknownCommand: No Discord.Interactions.AutocompleteCommandInfo found for hello name
-Command result: Success
-*/
